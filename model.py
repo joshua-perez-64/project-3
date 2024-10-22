@@ -57,7 +57,7 @@ def evaluate_model(model, X_test, y_test):
 
 def main():
     # Load your dataset (replace 'your_data.csv' with your actual data file)
-    diabetes_df = pd.read_csv('your_data.csv')
+    diabetes_df = pd.read_csv('resources\diabetes_df.csv')
     
     # Preprocess the data
     X_resampled, y_resampled, X_test, y_test = preprocess_data(diabetes_df)
