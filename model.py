@@ -10,6 +10,7 @@ from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Dense
+import pickle
 
 def load_data():
     # Load data
@@ -21,6 +22,9 @@ def preprocess_data(diabetes_df):
     # Scale BMI
     scaler = RobustScaler()
     diabetes_df['BMI'] = scaler.fit_transform(diabetes_df[['BMI']])
+    
+    with open('bmi_scaler.pkl', 'wb') as f: 
+        pickle.dump(scaler, f)
 
     # Split the data into features (X) and target (y)
     X = diabetes_df.drop(columns='Diabetes_binary')
@@ -87,12 +91,25 @@ def main():
 def load_trained_model(model_path='diabetes_model.h5'):
     return load_model(model_path)
 
+def load_bmi_scaler(scaler_path): 
+    return pickle.load(scaler_path)
+
 # Preproccess input
 def preprocess_input(data):
-    diabetes_df = pd.read_csv('resources\diabetes_df.csv')
-    # Scale BMI
-    scaler = RobustScaler()
-    diabetes_df['BMI'] = scaler.fit_transform(diabetes_df[['BMI']])
+    # Check if the input is in correct shape, i.e., (1, n) where n is the number of features
+    if data.shape[0] != 21:
+        raise ValueError("Incorrect input shape. Expected 21 features.")
+    
+    # Scaling the BMI column, assuming 'BMI' is the 3rd column in the input
+    # scaler = RobustScaler()
+    # data[:, 2] = scaler.fit_transform(data[:, 2].reshape(-1, 1))  # Scale only the BMI column
+    # data=scaler.fit_Transform(data)
+    with open('bmi_scaler.pkl', 'rb') as f: 
+        scaler=pickle.load(f)
+    
+    bmi_transformed = scaler.transform([[data[3]]])
+    data[3]=bmi_transformed[0, 0]
+    
     return data
 
 def predict(data, model):
