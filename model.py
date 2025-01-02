@@ -1,29 +1,28 @@
 import numpy as np
 import pandas as pd
 import os
-import tensorflow as tf
+import pickle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Dense
-import pickle
 
 def load_data():
-    # Load data
-    csv_path = os.path.join('resources', 'diabetes_data.csv')
+    """Loads the diabetes dataset."""
+    csv_path = os.path.join('resources', 'diabetes_df.csv')
     diabetes_df = pd.read_csv(csv_path)
     return diabetes_df
 
 def preprocess_data(diabetes_df):
+    """Preprocesses the data by scaling and balancing."""
     # Scale BMI
     scaler = RobustScaler()
     diabetes_df['BMI'] = scaler.fit_transform(diabetes_df[['BMI']])
     
-    with open('bmi_scaler.pkl', 'wb') as f: 
+    # Save the scaler for future use
+    with open('bmi_scaler.pkl', 'wb') as f:
         pickle.dump(scaler, f)
 
     # Split the data into features (X) and target (y)
@@ -40,19 +39,18 @@ def preprocess_data(diabetes_df):
     return X_resampled, y_resampled, X_test, y_test
 
 def build_model(input_shape):
-    # Build a Sequential model
-    model = Sequential()
-    model.add(Dense(16, input_shape=(input_shape,), activation='relu'))
-    model.add(Dense(8, activation='relu'))
-    model.add(Dense(1, activation='sigmoid'))  # Output layer for binary classification
+    """Builds and compiles the Sequential model."""
+    model = Sequential([
+        Dense(16, input_shape=(input_shape,), activation='relu'),
+        Dense(8, activation='relu'),
+        Dense(1, activation='sigmoid')  # Output layer for binary classification
+    ])
     
-    # Compile the model
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    
     return model
 
 def evaluate_model(model, X_test, y_test):
-    # Make predictions on the test set
+    """Evaluates the model and prints metrics."""
     testing_predictions = (model.predict(X_test) > 0.5).astype("int32")
     
     # Calculate accuracy
@@ -70,8 +68,8 @@ def evaluate_model(model, X_test, y_test):
     return test_accuracy
 
 def main():
-    # Load your dataset (replace 'your_data.csv' with your actual data file)
-    diabetes_df = pd.read_csv('resources\diabetes_df.csv')
+    # Load the dataset
+    diabetes_df = load_data()
     
     # Preprocess the data
     X_resampled, y_resampled, X_test, y_test = preprocess_data(diabetes_df)
@@ -87,39 +85,37 @@ def main():
     
     # Evaluate the model
     evaluate_model(model, X_test, y_test)
+    
+    return model  # Ensure this line is present to return the trained model
 
 def load_trained_model(model_path='diabetes_model.h5'):
+    """Loads the trained model."""
     return load_model(model_path)
 
-def load_bmi_scaler(scaler_path): 
-    return pickle.load(scaler_path)
-
-# Preproccess input
 def preprocess_input(data):
-    # Check if the input is in correct shape, i.e., (1, n) where n is the number of features
-    if data.shape[0] != 21:
+    """Preprocesses a single input sample for prediction."""
+    # Check the input shape
+    if len(data) != 21:
         raise ValueError("Incorrect input shape. Expected 21 features.")
     
-    # Scaling the BMI column, assuming 'BMI' is the 3rd column in the input
-    # scaler = RobustScaler()
-    # data[:, 2] = scaler.fit_transform(data[:, 2].reshape(-1, 1))  # Scale only the BMI column
-    # data=scaler.fit_Transform(data)
-    with open('bmi_scaler.pkl', 'rb') as f: 
-        scaler=pickle.load(f)
+    # Load the BMI scaler
+    with open('bmi_scaler.pkl', 'rb') as f:
+        scaler = pickle.load(f)
     
-    bmi_transformed = scaler.transform([[data[3]]])
-    data[3]=bmi_transformed[0, 0]
+    # Scale the BMI column (assuming it is the 4th feature, index 3)
+    data = np.array(data, dtype=np.float32)
+    data[3] = scaler.transform([[data[3]]])[0, 0]
     
     return data
 
 def predict(data, model):
-    # Ensure data is in numpy array format
-    input_data = np.array([data])
-
-    # Predict using model
+    """Makes a prediction for a single input sample."""
+    # Preprocess the input data
+    input_data = preprocess_input(data)
+    input_data = np.expand_dims(input_data, axis=0)  # Add batch dimension
+    
+    # Make a prediction
     prediction = model.predict(input_data)
-
-    # Return the predictions
     return 'Diabetes' if prediction[0] >= 0.5 else 'No Diabetes'
 
 if __name__ == "__main__":
